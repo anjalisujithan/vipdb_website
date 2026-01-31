@@ -1,0 +1,19 @@
+body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 0; background: #fafafa; }
+.wrap { max-width: 1200px; margin: 0 auto; padding: 24px; }
+.bar { display: flex; gap: 8px; margin: 12px 0 8px; }
+input { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 10px; }
+button { padding: 12px 14px; border: 1px solid #ddd; border-radius: 10px; background: white; cursor: pointer; }
+.meta { color: #666; margin-bottom: 12px; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.results { display: flex; flex-direction: column; gap: 10px; }
+.card { background: white; border: 1px solid #eee; border-radius: 14px; padding: 12px; cursor: pointer; }
+.card:hover { border-color: #ddd; }
+.card-title { font-weight: 650; margin-bottom: 6px; }
+.card-sub { display: flex; gap: 6px; flex-wrap: wrap; }
+.pill { font-size: 12px; padding: 4px 8px; border-radius: 999px; background: #f1f1f1; }
+.details { background: white; border: 1px solid #eee; border-radius: 14px; padding: 10px; max-height: 70vh; overflow: auto; }
+.kv { display: grid; grid-template-columns: 280px 1fr; gap: 12px; padding: 8px 6px; border-bottom: 1px solid #f3f3f3; }
+.k { font-weight: 600; color: #333; }
+.v { color: #222; word-break: break-word; }
+.muted { color: #888; }
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } .kv { grid-template-columns: 1fr; } }
