@@ -39,7 +39,11 @@ function renderResults(items) {
         ${db ? `<span class="pill">${escapeHtml(db)}</span>` : ""}
       </div>
     `;
-    div.onclick = () => renderDetails(item);
+    div.onclick = () => {
+      renderDetails(item);
+      // Scroll the details panel to top when a new item is selected
+      document.getElementById("details").scrollTop = 0;
+    };
     el.appendChild(div);
   }
 }
@@ -181,10 +185,16 @@ function updateDisplay(hasActiveFilters = true) {
   renderResults(pageItems);
   renderPagination(totalItems);
 
-  if (pageItems[0]) {
-    renderDetails(pageItems[0].item);
-  } else {
+  if (pageItems.length === 0) {
     detailsEl.textContent = "No results found.";
+  } else {
+    detailsEl.textContent = "Click a result to view all columns.";
+  }
+  
+  // Scroll results container to top when page changes
+  const resultsContainer = resultsEl.parentElement;
+  if (resultsContainer && resultsContainer.classList.contains('details')) {
+    resultsContainer.scrollTop = 0;
   }
 }
 
