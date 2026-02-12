@@ -13,8 +13,20 @@
     <h1>VIPdb Viewer</h1>
 
     <div class="bar">
-      <input id="q" placeholder="Search by PMID, Title, VIP_name, Database, DOI, Homepage…" />
-      <button id="clear">Clear</button>
+      <div class="search-box">
+        <button id="clear">Clear All</button>
+      </div>
+      
+      <div class="field-searches">
+        <input id="f-title" placeholder="Search Title" />
+        <input id="f-vip-name" placeholder="Search VIP Name" />
+        <input id="f-vip-family" placeholder="Search VIP Family Name" />
+        <input id="f-pmid" placeholder="Search PMID" />
+      </div>
+
+      <div id="filters" class="filters">
+        <!-- Filters will be injected here by app.js -->
+      </div>
     </div>
 
     <div id="meta" class="meta"></div>
@@ -23,6 +35,7 @@
       <div>
         <h2>Results</h2>
         <div id="results" class="results"></div>
+        <div id="pagination" class="pagination"></div>
       </div>
 
       <div>

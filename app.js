@@ -1,10 +1,18 @@
 let rows = [];
 let fuse = null;
+let currentPage = 1;
+const pageSize = 50;
+let currentFilteredRows = [];
 
 const KEY_FIELDS = [
   "PubMed_ID", "Title", "VIP_name", "VIP_family_name",
   "Database", "DOI", "Homepage", "Source_code", "Website_accessible",
   "Primarily_for_VIP", "Gene-specific"
+];
+
+const FILTER_COLUMNS = [
+  "Indel", "SNVs", "SVs", "Nonsynonymous_nonsense", "Synonymous", "Splicing", "Regulatory_regions",
+  "Standalone", "Web_server", "Website_accessible", "Primarily_for_VIP", "Database"
 ];
 
 function normPMID(x) {
@@ -36,11 +44,42 @@ function renderResults(items) {
   }
 }
 
+function renderPagination(totalItems) {
+  const el = document.getElementById("pagination");
+  el.innerHTML = "";
+  
+  if (totalItems <= pageSize) return;
+
+  const totalPages = Math.ceil(totalItems / pageSize);
+  
+  const prevBtn = document.createElement("button");
+  prevBtn.textContent = "← Previous";
+  prevBtn.disabled = currentPage === 1;
+  prevBtn.onclick = () => {
+    currentPage--;
+    updateDisplay();
+  };
+
+  const nextBtn = document.createElement("button");
+  nextBtn.textContent = "Next →";
+  nextBtn.disabled = currentPage === totalPages;
+  nextBtn.onclick = () => {
+    currentPage++;
+    updateDisplay();
+  };
+
+  const info = document.createElement("span");
+  info.textContent = `Page ${currentPage} of ${totalPages}`;
+
+  el.appendChild(prevBtn);
+  el.appendChild(info);
+  el.appendChild(nextBtn);
+}
+
 function renderDetails(row) {
   const el = document.getElementById("details");
   const keys = Object.keys(row);
 
-  // nice: keep important fields at top, then rest alphabetical
   const top = ["PubMed_ID","Title","VIP_name","VIP_family_name","Database","DOI","Homepage","Source_code","Year"];
   const rest = keys.filter(k => !top.includes(k)).sort((a,b)=>a.localeCompare(b));
   const ordered = [...top.filter(k => k in row), ...rest];
@@ -56,8 +95,6 @@ function renderDetails(row) {
 function formatValue(v) {
   if (v === null || v === undefined) return "<span class='muted'>(blank)</span>";
   const s = String(v);
-
-  // linkify URLs lightly
   if (/^https?:\/\//i.test(s)) {
     return `<a href="${escapeAttr(s)}" target="_blank" rel="noreferrer">${escapeHtml(s)}</a>`;
   }
@@ -71,53 +108,123 @@ function escapeHtml(s) {
 }
 function escapeAttr(s){ return escapeHtml(s); }
 
-function doSearch(query) {
+function doSearch() {
+  currentPage = 1; // Reset to first page on new search
+  const fTitle = document.getElementById("f-title").value.trim().toLowerCase();
+  const fVipName = document.getElementById("f-vip-name").value.trim().toLowerCase();
+  const fVipFamily = document.getElementById("f-vip-family").value.trim().toLowerCase();
+  const fPmid = document.getElementById("f-pmid").value.trim().toLowerCase();
+
+  const activeFilters = {};
+  FILTER_COLUMNS.forEach(col => {
+    const val = document.getElementById(`filter-${col}`).value;
+    if (val !== "any") {
+      activeFilters[col] = val;
+    }
+  });
+
+  const hasActiveFilters = fTitle || fVipName || fVipFamily || fPmid || Object.keys(activeFilters).length > 0;
+
+  if (!hasActiveFilters) {
+    currentFilteredRows = [];
+    updateDisplay(false);
+    return;
+  }
+
+  let filtered = rows;
+
+  // 1. Apply Field-specific searches (AND)
+  if (fTitle) {
+    filtered = filtered.filter(r => String(r["Title"] ?? "").toLowerCase().includes(fTitle));
+  }
+  if (fVipName) {
+    filtered = filtered.filter(r => String(r["VIP_name"] ?? "").toLowerCase().includes(fVipName));
+  }
+  if (fVipFamily) {
+    filtered = filtered.filter(r => String(r["VIP_family_name"] ?? "").toLowerCase().includes(fVipFamily));
+  }
+  if (fPmid) {
+    filtered = filtered.filter(r => String(r["PubMed_ID"] ?? "").toLowerCase().includes(fPmid));
+  }
+
+  // 2. Apply Score Filters (AND)
+  for (const [col, targetVal] of Object.entries(activeFilters)) {
+    filtered = filtered.filter(r => {
+      const v = String(r[col] ?? "");
+      return v === targetVal;
+    });
+  }
+
+  currentFilteredRows = filtered;
+  updateDisplay(true);
+}
+
+function updateDisplay(hasActiveFilters = true) {
   const meta = document.getElementById("meta");
-  const q = query.trim();
+  const resultsEl = document.getElementById("results");
+  const detailsEl = document.getElementById("details");
 
-  // Exact PMID shortcut (super common)
-  const exact = rows.find(r => normPMID(r["PubMed_ID"]) === q);
-  if (q && exact) {
-    meta.textContent = `Exact PMID match: 1 row`;
-    renderResults([{ item: exact }]);
-    renderDetails(exact);
+  if (!hasActiveFilters) {
+    meta.textContent = "Please enter a search term or select a filter to see results.";
+    resultsEl.innerHTML = "";
+    document.getElementById("pagination").innerHTML = "";
+    detailsEl.textContent = "Search or filter to view details.";
     return;
   }
 
-  if (!q) {
-    meta.textContent = `Loaded ${rows.length} rows.`;
-    renderResults(rows.slice(0, 50).map(item => ({ item })));
-    return;
-  }
+  const totalItems = currentFilteredRows.length;
+  const start = (currentPage - 1) * pageSize;
+  const end = start + pageSize;
+  const pageItems = currentFilteredRows.slice(start, end).map(item => ({ item }));
 
-  const results = fuse.search(q).slice(0, 50);
-  meta.textContent = `Matches: ${results.length} (showing up to 50)`;
-  renderResults(results);
-  if (results[0]) renderDetails(results[0].item);
+  meta.textContent = `Matches: ${totalItems}`;
+  renderResults(pageItems);
+  renderPagination(totalItems);
+
+  if (pageItems[0]) {
+    renderDetails(pageItems[0].item);
+  } else {
+    detailsEl.textContent = "No results found.";
+  }
+}
+
+function setupFilters() {
+  const container = document.getElementById("filters");
+  FILTER_COLUMNS.forEach(col => {
+    const group = document.createElement("div");
+    group.className = "filter-group";
+    const labelText = col.replace(/_/g, " ");
+    group.innerHTML = `
+      <label for="filter-${col}">${labelText}:</label>
+      <select id="filter-${col}">
+        <option value="any">Any</option>
+        <option value="1">Yes (1)</option>
+        <option value="0">No (0)</option>
+      </select>
+    `;
+    group.querySelector("select").onchange = doSearch;
+    container.appendChild(group);
+  });
 }
 
 async function main() {
   const resp = await fetch("vipdb.json");
   rows = await resp.json();
 
-  // Build fuzzy index
-  fuse = new Fuse(rows, {
-    includeScore: true,
-    threshold: 0.35, // lower = stricter
-    ignoreLocation: true,
-    keys: KEY_FIELDS
+  setupFilters();
+
+  const inputs = ["f-title", "f-vip-name", "f-vip-family", "f-pmid"];
+  inputs.forEach(id => {
+    document.getElementById(id).addEventListener("input", doSearch);
   });
 
-  doSearch("");
-
-  const input = document.getElementById("q");
-  input.addEventListener("input", (e) => doSearch(e.target.value));
-
   document.getElementById("clear").onclick = () => {
-    input.value = "";
-    doSearch("");
-    input.focus();
+    inputs.forEach(id => document.getElementById(id).value = "");
+    FILTER_COLUMNS.forEach(col => document.getElementById(`filter-${col}`).value = "any");
+    doSearch();
   };
+
+  doSearch();
 }
 
 main();
