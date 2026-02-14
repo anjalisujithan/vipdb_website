@@ -118,6 +118,8 @@ function doSearch() {
   const fVipName = document.getElementById("f-vip-name").value.trim().toLowerCase();
   const fVipFamily = document.getElementById("f-vip-family").value.trim().toLowerCase();
   const fPmid = document.getElementById("f-pmid").value.trim().toLowerCase();
+  const yearStart = document.getElementById("year-start").value;
+  const yearEnd = document.getElementById("year-end").value;
 
   const activeFilters = {};
   FILTER_COLUMNS.forEach(col => {
@@ -127,7 +129,7 @@ function doSearch() {
     }
   });
 
-  const hasActiveFilters = fTitle || fVipName || fVipFamily || fPmid || Object.keys(activeFilters).length > 0;
+  const hasActiveFilters = fTitle || fVipName || fVipFamily || fPmid || yearStart || yearEnd || Object.keys(activeFilters).length > 0;
 
   if (!hasActiveFilters) {
     currentFilteredRows = [];
@@ -151,7 +153,17 @@ function doSearch() {
     filtered = filtered.filter(r => String(r["PubMed_ID"] ?? "").toLowerCase().includes(fPmid));
   }
 
-  // 2. Apply Score Filters (AND)
+  // 2. Apply Year Range Filter
+  if (yearStart || yearEnd) {
+    const startYear = yearStart ? parseInt(yearStart) : -Infinity;
+    const endYear = yearEnd ? parseInt(yearEnd) : Infinity;
+    filtered = filtered.filter(r => {
+      const rowYear = parseInt(r["Year"] ?? 0);
+      return rowYear >= startYear && rowYear <= endYear;
+    });
+  }
+
+  // 3. Apply Score Filters (AND)
   for (const [col, targetVal] of Object.entries(activeFilters)) {
     filtered = filtered.filter(r => {
       const v = String(r[col] ?? "");
@@ -217,11 +229,37 @@ function setupFilters() {
   });
 }
 
+function setupYearFilters() {
+  // Extract all unique years from the dataset and sort them
+  const years = [...new Set(rows.map(r => parseInt(r["Year"])).filter(y => y && !isNaN(y)))].sort((a, b) => a - b);
+  
+  const startSelect = document.getElementById("year-start");
+  const endSelect = document.getElementById("year-end");
+  
+  // Populate both dropdowns with the same years
+  years.forEach(year => {
+    const option1 = document.createElement("option");
+    option1.value = year;
+    option1.textContent = year;
+    startSelect.appendChild(option1);
+    
+    const option2 = document.createElement("option");
+    option2.value = year;
+    option2.textContent = year;
+    endSelect.appendChild(option2);
+  });
+  
+  // Add event listeners
+  startSelect.addEventListener("change", doSearch);
+  endSelect.addEventListener("change", doSearch);
+}
+
 async function main() {
   const resp = await fetch("vipdb.json");
   rows = await resp.json();
 
   setupFilters();
+  setupYearFilters();
 
   const inputs = ["f-title", "f-vip-name", "f-vip-family", "f-pmid"];
   inputs.forEach(id => {
@@ -231,6 +269,8 @@ async function main() {
   document.getElementById("clear").onclick = () => {
     inputs.forEach(id => document.getElementById(id).value = "");
     FILTER_COLUMNS.forEach(col => document.getElementById(`filter-${col}`).value = "any");
+    document.getElementById("year-start").value = "";
+    document.getElementById("year-end").value = "";
     doSearch();
   };
 
